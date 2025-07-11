@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Chat con Gemini</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div id="chat-container">
+        <div id="chat-history"></div>
+        <div id="typing-indicator" style="display:none;">Escribiendo...</div>
+        <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." autocomplete="off">
+        <button id="send-btn">Enviar</button>
+    </div>
+    <script>
+        let token = localStorage.getItem('access_token'); // Debes obtenerlo tras login
+
+        async function sendMessage(msg) {
+            document.getElementById('typing-indicator').style.display = 'block';
+            const res = await fetch('/chat/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ content: msg })
+            });
+            document.getElementById('typing-indicator').style.display = 'none';
+            return await res.json();
+        }
+
+        function appendMessage(role, content) {
+            const chatHistory = document.getElementById('chat-history');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = role;
+            msgDiv.textContent = `${role === 'user' ? 'Tú' : 'Gemini'}: ${content}`;
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        document.getElementById('send-btn').onclick = async function () {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+            appendMessage('user', msg);
+            input.value = '';
+            const response = await sendMessage(msg);
+            appendMessage('assistant', response.response || response.msg || 'Error');
+        };
+
+        document.getElementById('chat-input').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                document.getElementById('send-btn').click();
+            }
+        });
+
+        // Opcional: cargar historial al cargar la página
+        async function loadHistory() {
+            const res = await fetch('/chat/history', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.history) {
+                data.history.forEach(msg => appendMessage(msg.role, msg.content));
+            }
+        }
+        loadHistory();
+    </script>
+</body>
+
+</html>
